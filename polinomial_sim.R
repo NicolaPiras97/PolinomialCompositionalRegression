@@ -15,33 +15,26 @@ generate_data_poly <- function(
     response_type = c("ordinal", "nominal"),
     lambda = 1.5,
     alpha_dir = 60,
-    B=NULL,
     x_weights = NULL,
     y_scores = NULL,
     beta = NULL,
-    normalize_eta = TRUE
+    B = NULL
 ) {
   
+  response_type <- match.arg(response_type)
   
-  
-  # ============================================================
-  # 1. Generazione X composizionale
-  # ============================================================
-  
+  # ---------------------------------------------------------
+  # 1. Generazione di X composizionale
+  # ---------------------------------------------------------
   X <- matrix(0, N, Cx)
   
   for (n in 1:N) {
-    X[n, ] <- rdirichlet(
-      1,
-      rep(1, Cx)
-    )
+    X[n, ] <- rdirichlet(1, rep(1, Cx))
   }
   
-  
-  # ============================================================
-  # 2. Costruzione della base polinomiale di Bernstein
-  # ============================================================
-  
+  # ---------------------------------------------------------
+  # 2. Base polinomiale di Bernstein
+  # ---------------------------------------------------------
   Z <- bernstein_basis(
     X,
     degree = degree,
@@ -50,155 +43,136 @@ generate_data_poly <- function(
   
   D <- ncol(Z)
   
-  if (is.null(B)) {
-    B <- matrix(
-      rnorm(D * Cy, mean = 0, sd = 0.5),
-      nrow = D,
-      ncol = Cy
-    )
-  } else {
-    if (!all(dim(B) == c(D, Cy))) {
-      stop(
-        sprintf(
-          "B must be a %d x %d matrix",
-          D, Cy
-        )
-      )
-    }
-  }
-  
-  
-  # ============================================================
-  # 3. Coefficienti veri del polinomio
-  # ============================================================
-  
-  if (is.null(beta)) {
+  # =========================================================
+  # CASO ORDINALE
+  # =========================================================
+  if (response_type == "ordinal") {
     
-    beta <- rnorm(
-      D,
-      mean = 0,
-      sd = 1
-    )
-    
-  } else {
-    
-    if (length(beta) != D) {
-      stop(
-        sprintf(
+    # -------------------------------------------------------
+    # 3. Coefficienti del predittore latente
+    #
+    #    eta_i = Z_i %*% beta
+    #
+    #    Di default:
+    #    beta = 1, 2, ..., D
+    # -------------------------------------------------------
+    if (is.null(beta)) {
+      beta <- 1:D
+    } else {
+      if (length(beta) != D) {
+        stop(sprintf(
           "beta must have length %d for Cx = %d and degree = %d",
           D, Cx, degree
-        )
-      )
-    }
-  }
-  
-  
-  # ============================================================
-  # 4. Predittore polinomiale
-  # ============================================================
-  
-  eta_raw <- as.vector(
-    Z %*% beta
-  )
-  
-  
-  # ============================================================
-  # 5. Riscalamento del predittore
-  #    nello spazio delle categorie ordinali
-  # ============================================================
-  
-  if (is.null(y_scores)) {
-    zy <- 1:Cy
-  } else {
-    
-    if (length(y_scores) != Cy) {
-      stop("y_scores must have length Cy")
+        ))
+      }
     }
     
-    zy <- y_scores
-  }
-  
-  
-  if (normalize_eta) {
+    # Predittore latente polinomiale
+    eta <- as.vector(Z %*% beta)
     
-    eta_min <- min(eta_raw)
-    eta_max <- max(eta_raw)
-    
-    if (eta_max == eta_min) {
-      eta <- rep(mean(zy), N)
+    # -------------------------------------------------------
+    # 4. Coordinate latenti delle categorie ordinali di Y
+    # -------------------------------------------------------
+    if (is.null(y_scores)) {
+      zy <- 1:Cy
     } else {
-      
-      eta <- min(zy) +
-        (eta_raw - eta_min) /
-        (eta_max - eta_min) *
-        (max(zy) - min(zy))
+      if (length(y_scores) != Cy) {
+        stop("y_scores must have length Cy")
+      }
+      zy <- y_scores
     }
     
-  } else {
+    # -------------------------------------------------------
+    # 5. Generazione di Y | X
+    #
+    #    p_ic propto exp(-lambda * |zy_c - eta_i|)
+    # -------------------------------------------------------
+    Y <- matrix(0, N, Cy)
     
-    eta <- eta_raw
-  }
-  
-  
-  # ============================================================
-  # 6. Generazione Y composizionale
-  #    tramite kernel Laplace
-  # ============================================================
-  
-  Y <- matrix(
-    0,
-    nrow = N,
-    ncol = Cy
-  )
-  
-  for (n in 1:N) {
-    
-    # kernel Laplace
-    if (response_type == "ordinal") {
+    for (n in 1:N) {
       
-      # Ordinal mechanism
-      prob <- exp(
-        -lambda * abs(zy - eta[n])
-      )
-      
-      # Normalization
+      prob <- exp(-lambda * abs(zy - eta[n]))
       prob <- prob / sum(prob)
       
-    } else {
-      
-      # Non-ordinal mechanism
-      theta <- as.vector(Z[n, ] %*% B)
-      
-      # Numerical stabilization of the softmax
-      prob <- exp(theta - max(theta))
-      
-      # Normalization
-      prob <- prob / sum(prob)
+      Y[n, ] <- rdirichlet(
+        1,
+        alpha_dir * prob
+      )
     }
     
-    # Y composizionale
-    Y[n, ] <- rdirichlet(
-      1,
-      alpha_dir * prob
-    )
-  }
-  
-  
-  # ============================================================
-  # 7. Output
-  # ============================================================
-  
-  return(
-    list(
+    return(list(
       X = X,
       Y = Y,
       Z = Z,
       beta = beta,
       eta = eta,
-      eta_raw = eta_raw,
       y_scores = zy
-    )
-  )
+    ))
+  }
+  
+  
+  # =========================================================
+  # CASO NOMINALE
+  # =========================================================
+  if (response_type == "nominal") {
+    
+    # -------------------------------------------------------
+    # 3. Matrice dei coefficienti polinomiali
+    #
+    #    B ha dimensione D x Cy.
+    #
+    #    Ogni colonna corrisponde a una categoria di Y.
+    # -------------------------------------------------------
+    if (is.null(B)) {
+      
+      B <- matrix(
+        rnorm(D * Cy, mean = 0, sd = 0.5),
+        nrow = D,
+        ncol = Cy
+      )
+      
+    } else {
+      
+      if (!all(dim(B) == c(D, Cy))) {
+        stop(sprintf(
+          "B must be a %d x %d matrix",
+          D, Cy
+        ))
+      }
+    }
+    
+    # -------------------------------------------------------
+    # 4. Predittori polinomiali per le Cy categorie
+    #
+    #    theta_ic = Z_i %*% B[, c]
+    # -------------------------------------------------------
+    theta <- Z %*% B
+    
+    # -------------------------------------------------------
+    # 5. Softmax + generazione composizionale di Y | X
+    # -------------------------------------------------------
+    Y <- matrix(0, N, Cy)
+    
+    for (n in 1:N) {
+      
+      # Softmax con stabilizzazione numerica
+      prob <- exp(theta[n, ] - max(theta[n, ]))
+      prob <- prob / sum(prob)
+      
+      Y[n, ] <- rdirichlet(
+        1,
+        alpha_dir * prob
+      )
+    }
+    
+    return(list(
+      X = X,
+      Y = Y,
+      Z = Z,
+      B = B,
+      theta = theta
+    ))
+  }
 }
 
 run_simulation <- function(
