@@ -1147,7 +1147,7 @@ run_simulation2 <- function(
       
       # LINEAR / COD
       y2[n, ] <- safe_dirichlet(
-        t(Ac) %*% x_l[n, ]
+        Ac %*% x_l[n, ]
       )
     }
     
@@ -1312,148 +1312,82 @@ run_simulation2 <- function(
     
     
     # ============================================================
-    # COD STIMATO
-    # ============================================================
-    
-    eps <- 1e-8
-    
-    Ymat1 <- do.call(rbind, P1list_tr)
-    Ymat2 <- do.call(rbind, P2list_tr)
-    
-    Xmat_l <- do.call(rbind, Plist_l_tr)
-    Xmat_p <- do.call(rbind, Plist_p_tr)
-    
-    
-    # Evito valori esattamente nulli
-    Ymat1[Ymat1 < eps] <- eps
-    Ymat2[Ymat2 < eps] <- eps
-    
-    Xmat_l[Xmat_l < eps] <- eps
-    Xmat_p[Xmat_p < eps] <- eps
-    
-    
-    # Rinormalizzazione
-    Ymat1 <- Ymat1 / rowSums(Ymat1)
-    Ymat2 <- Ymat2 / rowSums(Ymat2)
-    
-    Xmat_l <- Xmat_l / rowSums(Xmat_l)
-    Xmat_p <- Xmat_p / rowSums(Xmat_p)
-    
-    
-    # COD sul DGP POLY
-    A1_poly_cod <- codalm(Ymat1, Xmat_p)
-    A1_lin_cod  <- codalm(Ymat1, Xmat_l)
-    
-    
-    # COD sul DGP LINEARE
-    A2_poly_cod <- codalm(Ymat2, Xmat_p)
-    A2_lin_cod  <- codalm(Ymat2, Xmat_l)
-    
-    
-    # ============================================================
     # ERRORI
     # ============================================================
     
-    # ------------------------------------------------------------
-    # DGP POLINOMIALE
-    # ------------------------------------------------------------
-    
-    # POLY vs COD
-    calc_errors_poly <- function(
+    calc_errors <- function(
     A_poly,
-    A_cod,
+    A_lin,
     y_true,
     x_poly,
-    x_cod
+    x_lin
     ){
       
       err_wrps_poly <- 0
-      err_wrps_cod  <- 0
+      err_wrps_lin  <- 0
       err_b_poly    <- 0
-      err_b_cod     <- 0
+      err_b_lin     <- 0
       
       for(i in inva){
         
-        # previsione POLY
+        # --------------------------------------------------------
+        # Previsione POLY
+        # --------------------------------------------------------
+        
         pred_poly <- as.vector(
           A_poly %*% x_poly[i, ]
         )
         
-        # previsione COD
-        pred_cod <- as.vector(
-          t(A_cod) %*% x_cod[i, ]
+        
+        # --------------------------------------------------------
+        # Previsione LINEARE
+        # --------------------------------------------------------
+        
+        pred_lin <- as.vector(
+          A_lin %*% x_lin[i, ]
         )
         
-        err_wrps_poly <- err_wrps_poly +
-          calc_wrps(pred_poly, y_true[i, ])
         
-        err_wrps_cod <- err_wrps_cod +
-          calc_wrps(pred_cod, y_true[i, ])
+        # --------------------------------------------------------
+        # RPS
+        # --------------------------------------------------------
+        
+        err_wrps_poly <- err_wrps_poly +
+          calc_wrps(
+            pred_poly,
+            y_true[i, ]
+          )
+        
+        err_wrps_lin <- err_wrps_lin +
+          calc_wrps(
+            pred_lin,
+            y_true[i, ]
+          )
+        
+        
+        # --------------------------------------------------------
+        # Brier
+        # --------------------------------------------------------
         
         err_b_poly <- err_b_poly +
-          calc_brier(pred_poly, y_true[i, ])
+          calc_brier(
+            pred_poly,
+            y_true[i, ]
+          )
         
-        err_b_cod <- err_b_cod +
-          calc_brier(pred_cod, y_true[i, ])
+        err_b_lin <- err_b_lin +
+          calc_brier(
+            pred_lin,
+            y_true[i, ]
+          )
       }
+      
       
       return(c(
         err_wrps_poly / va,
-        err_wrps_cod  / va,
+        err_wrps_lin  / va,
         err_b_poly    / va,
-        err_b_cod     / va
-      ))
-    }
-    
-    
-    # ------------------------------------------------------------
-    # DGP LINEARE
-    # ------------------------------------------------------------
-    
-    # POLY vs COD
-    calc_errors_lin <- function(
-    A_poly,
-    A_cod,
-    y_true,
-    x_poly,
-    x_cod
-    ){
-      
-      err_wrps_poly <- 0
-      err_wrps_cod  <- 0
-      err_b_poly    <- 0
-      err_b_cod     <- 0
-      
-      for(i in inva){
-        
-        # previsione POLY
-        pred_poly <- as.vector(
-          A_poly %*% x_poly[i, ]
-        )
-        
-        # previsione COD
-        pred_cod <- as.vector(
-          t(A_cod) %*% x_cod[i, ]
-        )
-        
-        err_wrps_poly <- err_wrps_poly +
-          calc_wrps(pred_poly, y_true[i, ])
-        
-        err_wrps_cod <- err_wrps_cod +
-          calc_wrps(pred_cod, y_true[i, ])
-        
-        err_b_poly <- err_b_poly +
-          calc_brier(pred_poly, y_true[i, ])
-        
-        err_b_cod <- err_b_cod +
-          calc_brier(pred_cod, y_true[i, ])
-      }
-      
-      return(c(
-        err_wrps_poly / va,
-        err_wrps_cod  / va,
-        err_b_poly    / va,
-        err_b_cod     / va
+        err_b_lin     / va
       ))
     }
     
@@ -1462,25 +1396,29 @@ run_simulation2 <- function(
     # CALCOLO ERRORI
     # ============================================================
     
-    # DGP POLINOMIALE:
-    # POLY vs LINEAR
-    errs_poly <- calc_errors_poly(
+    # ------------------------------------------------------------
+    # DGP POLINOMIALE
+    # ------------------------------------------------------------
+    
+    errs_poly <- calc_errors(
       A_poly = A1_poly,
-      A_cod  = A1_lin_cod,
+      A_lin  = A1_lin,
       y_true = y1,
       x_poly = x_p,
-      x_cod  = x_l
+      x_lin  = x_l
     )
     
     
-    # DGP LINEARE:
-    # POLY vs LINEAR
-    errs_lin <- calc_errors_lin(
+    # ------------------------------------------------------------
+    # DGP LINEARE
+    # ------------------------------------------------------------
+    
+    errs_lin <- calc_errors(
       A_poly = A2_poly,
-      A_cod  = A2_lin_cod,
+      A_lin  = A2_lin,
       y_true = y2,
       x_poly = x_p,
-      x_cod  = x_l
+      x_lin  = x_l
     )
     
     
@@ -1496,30 +1434,76 @@ run_simulation2 <- function(
     # WINS
     # ============================================================
     
-    # POLY vs LINEAR sul DGP POLY
+    # ------------------------------------------------------------
+    # POLY vs LINEAR sul DGP POLINOMIALE
+    # ------------------------------------------------------------
+    
     result[it, 9:10] <- as.numeric(
       errs_poly[c(1,3)] < errs_poly[c(2,4)]
     )
     
     
+    # ------------------------------------------------------------
     # POLY vs LINEAR sul DGP LINEARE
+    # ------------------------------------------------------------
+    
     result[it, 11:12] <- as.numeric(
       errs_lin[c(1,3)] < errs_lin[c(2,4)]
     )
     
     
-    # Confronto diretto tra i due DGP
+    # ------------------------------------------------------------
+    # TRUE DGP
+    # Come nella vecchia simulazione:
+    # POLY sul DGP POLY vs LIN sul DGP LIN
+    # ------------------------------------------------------------
+    
     result[it, 13:14] <- as.numeric(
       errs_poly[c(1,3)] < errs_lin[c(2,4)]
     )
+    
+    # ============================================================
+    # FINE ITERAZIONE
+    # ============================================================
+    
   }
-    list(
-      mean_res  = colMeans(result),
-      sd_res    = apply(result, 2, sd),
-      win_rates = colMeans(result[, 9:14]),
-      raw_results = result
-    )
+  
+  
+  # ============================================================
+  # RISULTATI FINALI
+  # ============================================================
+  
+  list(
+    mean_res = colMeans(
+      result,
+      na.rm = TRUE
+    ),
+    
+    sd_res = apply(
+      result,
+      2,
+      sd,
+      na.rm = TRUE
+    ),
+    
+    win_rates = colMeans(
+      result[, 9:14],
+      na.rm = TRUE
+    ),
+    
+    raw_results = result
+  )
 }    
+
+s2 <- run_simulation2(
+  iter=500,
+  N = 100,
+  Cx0 = 5,
+  Cy0 = 7,
+  response_type="ordinal",
+  distance="wd"
+)
+s2$win_rates  
 
 ###########################################################################
 run_simulation_caseI <- function(
@@ -2241,3 +2225,10 @@ run_simulation_caseI2 <- function(
     raw_results = result
   )
 }
+sI <- run_simulation_caseI2(
+  iter=500,
+  N = 100,
+  Cx = 5,
+  Cy = 5,
+  response_type = "ordinal"
+)
