@@ -6,6 +6,7 @@ if(!require(compositions)) install.packages("compositions")
 if(!require(dplyr)) install.packages("dplyr") 
 if(!require(tidyr)) install.packages("tidyr") 
 if(!require(reshape2)) install.packages("reshape2") 
+if(!require(OrdinalCompositions)) install.packages("OrdinalCompositions") 
 
 
 generate_data_poly <- function(
@@ -706,7 +707,7 @@ run_simulation <- function(
     if(distance=="wd"){
       A1 <- solve_simplex_lp(Plist_tr, P1list_tr, weights)$A
     } else if(distance=="cvm"){
-      A1 <- fit_simplex_ordinal(x,y1,degree=1,distance="cvm")$A
+      A1 <- fit_simplex_ordinal(x,y1,degree=1)$A
     } else if(distance=="scs"){
       A1 <- fit_simplex_nominal(x,y1,degree=1)$A
     } else {
@@ -716,7 +717,7 @@ run_simulation <- function(
     if(distance=="wd"){
       A2 <- solve_simplex_lp(Plist_tr, P2list_tr, weights)$A
     } else if(distance=="cvm"){
-      A2 <- fit_simplex_ordinal(x,y2,degree=1,distance="cvm")$A
+      A2 <- fit_simplex_ordinal(x,y2,degree=1)$A
     } else if(distance=="scs"){
       A2 <- fit_simplex_nominal(x,y2,degree=1)$A
     } else {
@@ -1099,7 +1100,7 @@ run_simulation2 <- function(
     if(distance=="wd"){
       sol <- solve_simplex_lp(xdatac, ydatac, weights)
     } else if(distance=="cvm"){
-      sol <- fit_simplex_ordinal(x0_l,y_l,degree=1,distance="cvm")
+      sol <- fit_simplex_ordinal(x0_l,y_l,degree=1)
     } else if(distance=="scs"){
       sol <- fit_simplex_nominal(x0_l,y_l,degree=1)
     } else {
@@ -1114,7 +1115,7 @@ run_simulation2 <- function(
     if(distance=="wd"){
       sol <- solve_simplex_lp(xdata, ydata, weights)
     } else if(distance=="cvm"){
-      sol <- fit_simplex_ordinal(x0_p,y_p,degree=1,distance="cvm")
+      sol <- fit_simplex_ordinal(x0_p,y_p,degree=1)
     } else if(distance=="scs"){
       sol <- fit_simplex_nominal(x0_p,y_p,degree=1)
     } else {
@@ -1193,8 +1194,7 @@ run_simulation2 <- function(
       A1_poly <- fit_simplex_ordinal(
         x_p[intr, ],
         y1[intr, ],
-        degree = 1,
-        distance = "cvm"
+        degree = 1
       )$A
       
     } else if(distance == "scs"){
@@ -1225,8 +1225,7 @@ run_simulation2 <- function(
       A1_lin <- fit_simplex_ordinal(
         x_l[intr, ],
         y1[intr, ],
-        degree = 1,
-        distance = "cvm"
+        degree = 1
       )$A
       
     } else if(distance == "scs"){
@@ -1261,8 +1260,7 @@ run_simulation2 <- function(
       A2_poly <- fit_simplex_ordinal(
         x_p[intr, ],
         y2[intr, ],
-        degree = 1,
-        distance = "cvm"
+        degree = 1
       )$A
       
     } else if(distance == "scs"){
@@ -1293,8 +1291,7 @@ run_simulation2 <- function(
       A2_lin <- fit_simplex_ordinal(
         x_l[intr, ],
         y2[intr, ],
-        degree = 1,
-        distance = "cvm"
+        degree = 1
       )$A
       
     } else if(distance == "scs"){
@@ -1671,8 +1668,7 @@ run_simulation_caseI <- function(
     A_cvm <- fit_simplex_ordinal(
       X,
       Y,
-      degree = 1,
-      distance = "cvm"
+      degree = 1
     )$A
     
     
@@ -1999,8 +1995,7 @@ run_simulation_caseI2 <- function(
     A_cvm_lin <- fit_simplex_ordinal(
       X_lin,
       Y_lin,
-      degree = 1,
-      distance = "cvm"
+      degree = 1
     )$A
     
     
@@ -2164,8 +2159,7 @@ run_simulation_caseI2 <- function(
     A_cvm_poly <- fit_simplex_ordinal(
       X_poly,
       Y_poly,
-      degree = 1,
-      distance = "cvm"
+      degree = 1
     )$A
     
     
