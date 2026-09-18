@@ -63,7 +63,7 @@ fit_simplex_ordinal <-function(X, Y, degree = 2, weights = NULL, alpha_weights=N
   
    # Default to equidistant vertices (a_j = 1) if weights are not provided
    if (is.null(weights)) {
-     a_weights <-rep(1, m)
+     weights <-rep(1, m)
      }
    if (length(weights) != m || any(weights <= 0)) {
      stop(sprintf("a_weights must be a strictly positive vector of length %d.", m))
