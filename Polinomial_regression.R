@@ -1,6 +1,7 @@
 #install.packages("CVXR",type = "binary")
 
 library(CVXR)
+library(OrdinalCompositions)
 
 # Recursive function to generate multi-indices that sum to degree k
 generate_multiindices <-function(n_vars, degree) {
@@ -106,12 +107,7 @@ fit_simplex_ordinal <-function(X, Y, degree = 2, weights = NULL, alpha_weights=N
    return(list(A = A_opt, fitted = Z %*% t(A_opt)))
 }   
 
-res<-fit_simplex_ordinal(x,y)
-res$A
-RMSE <- sqrt(mean((y - res$fitted)^2))
-RMSE
-RMSE_obs <- sqrt(rowMeans((y - res$fitted)^2))
-RMSE_obs
+
 
 ##############con regolarizzazione##################
 
