@@ -7,7 +7,7 @@ library(OrdinalCompositions)
 generate_multiindices <-function(n_vars, degree) {
  if (n_vars == 1) return(matrix(degree, nrow = 1))
   res <-matrix(nrow = 0, ncol = n_vars)
-  for (i in 0:degree) {
+  for (i in degree:0) {
    sub_res <-generate_multiindices(n_vars- 1, degree- i)
    res <-rbind(res, cbind(i, sub_res))
   }
